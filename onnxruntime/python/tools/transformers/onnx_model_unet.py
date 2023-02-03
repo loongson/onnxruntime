@@ -10,8 +10,10 @@ from fusion_attention_unet import FusionAttentionUnet
 from fusion_biassplitgelu import FusionBiasSplitGelu
 from fusion_group_norm import FusionGroupNorm
 from fusion_options import FusionOptions
-from onnx import ModelProto
+from fusion_utils import FusionUtils
+from onnx import ModelProto, TensorProto, helper, numpy_helper
 from onnx_model_bert import BertOnnxModel
+from onnx_model import OnnxModel
 
 logger = getLogger(__name__)
 
@@ -30,10 +32,32 @@ class UnetOnnxModel(BertOnnxModel):
         super().__init__(model, num_heads=num_heads, hidden_size=hidden_size)
 
     def preprocess(self):
-        return
+        self.remove_useless_div()
+        pass
 
     def postprocess(self):
+        self.convert_conv_to_nhwc()
         self.prune_graph()
+
+    def remove_useless_div(self):
+        """Remove Div by 1"""
+        div_nodes = [node for node in self.nodes() if node.op_type == "Div"]
+        remove_div_node_count = 0
+        nodes_to_remove = []
+        for div in div_nodes:
+            if self.find_constant_input(div, 1.0) == 1:
+                nodes_to_remove.append(div)
+
+        for node in nodes_to_remove:
+            self.replace_input_of_all_nodes(node.output[0], node.input[0])
+
+        self.remove_nodes(nodes_to_remove)
+        logger.info("Removed %d useless Div (by 1) nodes", len(nodes_to_remove))
+
+    def convert_conv_to_nhwc(self):
+        conv_to_nhwc_conv = FusionNhwcConv(self)
+        conv_to_nhwc_conv.apply()
+
 
     def optimize(self, options: Optional[FusionOptions] = None):
         if (options is not None) and not options.enable_shape_inference:
