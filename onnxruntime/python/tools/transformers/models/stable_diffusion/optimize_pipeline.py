@@ -32,6 +32,7 @@ import sys
 from pathlib import Path
 
 import coloredlogs
+import onnx
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "..", ".."))
 from fusion_options import FusionOptions
@@ -39,8 +40,10 @@ from optimizer import optimize_model  # noqa: E402
 
 logger = logging.getLogger(__name__)
 
+DEBUG = True
 
-def optimize_stable_diffusion_onnx_pipeline(
+
+def optimize_sd_pipeline(
     source_dir: Path, target_dir: Path, overwrite: bool, use_external_data_format: bool, float16: bool
 ):
     """Optimize onnx models used in stable diffusion onnx pipeline and optionally convert to float16.
@@ -56,7 +59,7 @@ def optimize_stable_diffusion_onnx_pipeline(
         RuntimeError: input onnx model does not exist
         RuntimeError: output onnx model path existed
     """
-    dirs_with_onnx = ["unet", "vae_encoder", "vae_decoder", "text_encoder", "safety_checker"]
+    dirs_with_onnx = ["unet"] if DEBUG else ["unet", "vae_encoder", "vae_decoder", "text_encoder", "safety_checker"]
     for name in dirs_with_onnx:
         onnx_model_path = source_dir / name / "model.onnx"
 
@@ -90,6 +93,7 @@ def optimize_stable_diffusion_onnx_pipeline(
 
         if float16:
             logger.info("convert %s to float16 ...", name)
+            onnx.save(m.model, f"{name}_fp32.onnx", save_as_external_data=True, convert_attribute=True)
             m.convert_float_to_float16(op_block_list=["RandomNormalLike", "Resize", "GroupNorm"])
 
         optimized_model_path = target_dir / name / "model.onnx"
@@ -118,7 +122,7 @@ def copy_extra_directory(source_dir: Path, target_dir: Path, overwrite: bool):
         RuntimeError: source path does not exist
         RuntimeError: output path exists but overwrite is false.
     """
-    extra_dirs = ["scheduler", "tokenizer", "feature_extractor"]
+    extra_dirs = [] if DEBUG else ["scheduler", "tokenizer", "feature_extractor"]
 
     for name in extra_dirs:
         source_path = source_dir / name
@@ -211,7 +215,7 @@ def main():
     coloredlogs.install(fmt="%(funcName)20s: %(message)s")
     args = parse_arguments()
     copy_extra_directory(Path(args.input), Path(args.output), args.overwrite)
-    optimize_stable_diffusion_onnx_pipeline(
+    optimize_sd_pipeline(
         Path(args.input), Path(args.output), args.overwrite, args.use_external_data_format, args.float16
     )
 
