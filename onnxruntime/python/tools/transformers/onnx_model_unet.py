@@ -19,6 +19,7 @@ from onnx_model_bert import BertOnnxModel
 
 logger = getLogger(__name__)
 
+
 class UnetOnnxModel(BertOnnxModel):
     def __init__(self, model: ModelProto, num_heads: int = 0, hidden_size: int = 0):
         """Initialize UNet ONNX Model.
@@ -37,13 +38,13 @@ class UnetOnnxModel(BertOnnxModel):
 
     def postprocess(self):
         self.merge_sequential_transpose()
-        self.remove_unused_constant()
         self.prune_graph()
+        self.remove_unused_constant()
 
     def remove_useless_div(self):
         """Remove Div by 1"""
         div_nodes = [node for node in self.nodes() if node.op_type == "Div"]
-        remove_div_node_count = 0
+
         nodes_to_remove = []
         for div in div_nodes:
             if self.find_constant_input(div, 1.0) == 1:
@@ -56,7 +57,8 @@ class UnetOnnxModel(BertOnnxModel):
         logger.info("Removed %d useless Div (by 1) nodes", len(nodes_to_remove))
 
     def convert_conv_to_nhwc(self):
-        conv_to_nhwc_conv = FusionNhwcConv(self)
+        # Do not update weight here since save external data has a bug
+        conv_to_nhwc_conv = FusionNhwcConv(self, update_weight=False)
         conv_to_nhwc_conv.apply()
 
     def merge_sequential_transpose(self):
@@ -117,9 +119,7 @@ class UnetOnnxModel(BertOnnxModel):
             self_attention_fusion.apply()
 
             enable_packed_kv = (options is None) or options.enable_packed_kv
-            cross_attention_fusion = FusionAttentionUnet(
-                self, self.hidden_size, self.num_heads, True, enable_packed_kv
-            )
+            cross_attention_fusion = FusionAttentionUnet(self, self.hidden_size, self.num_heads, True, enable_packed_kv)
             cross_attention_fusion.apply()
 
         if (options is None) or options.enable_skip_layer_norm:
@@ -142,3 +142,26 @@ class UnetOnnxModel(BertOnnxModel):
         self.postprocess()
 
         logger.info(f"opset version: {self.get_opset_version()}")
+
+    def get_fused_operator_statistics(self):
+        """
+        Returns node count of fused operators.
+        """
+        op_count = {}
+        ops = [
+            "Attention",
+            "MultiHeadAttention",
+            "Gelu",
+            "FastGelu",
+            "LayerNormalization",
+            "SkipLayerNormalization",
+            "BiasSplitGelu",
+            "GroupNorm",
+            "NhwcConv",
+        ]
+        for op in ops:
+            nodes = self.get_nodes_by_op_type(op)
+            op_count[op] = len(nodes)
+
+        logger.info(f"Optimized operators:{op_count}")
+        return op_count
