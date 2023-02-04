@@ -79,11 +79,12 @@ class FusionNhwcConv(Fusion):
         output_transpose_node = self.create_transpose_node(nhwc_conv.output[0], [0, 3, 1, 2], conv.output[0])
 
         self.nodes_to_remove.append(conv)
-        self.nodes_to_add.extend([input_transpose_node, nhwc_conv, output_transpose_node])
+
+        nodes_to_add = [input_transpose_node, nhwc_conv, output_transpose_node]
         if weight_transpose_node:
-            self.nodes_to_add.append(weight_transpose_node)
-        self.node_name_to_graph_name[input_transpose_node.name] = self.this_graph_name
-        self.node_name_to_graph_name[output_transpose_node.name] = self.this_graph_name
-        self.node_name_to_graph_name[nhwc_conv.name] = self.this_graph_name
+            nodes_to_add.append(weight_transpose_node)
+        for node in nodes_to_add:
+            self.node_name_to_graph_name[node.name] = self.this_graph_name
+        self.nodes_to_add.extend(nodes_to_add)
 
         self.increase_counter("NhwcConv")
