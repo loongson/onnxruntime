@@ -9,14 +9,15 @@ from typing import Optional
 from fusion_attention_unet import FusionAttentionUnet
 from fusion_biassplitgelu import FusionBiasSplitGelu
 from fusion_group_norm import FusionGroupNorm
+from fusion_nhwc_conv import FusionNhwcConv
 from fusion_options import FusionOptions
+from fusion_transpose import FusionTranspose
 from fusion_utils import FusionUtils
 from onnx import ModelProto, TensorProto, helper, numpy_helper
-from onnx_model_bert import BertOnnxModel
 from onnx_model import OnnxModel
+from onnx_model_bert import BertOnnxModel
 
 logger = getLogger(__name__)
-
 
 class UnetOnnxModel(BertOnnxModel):
     def __init__(self, model: ModelProto, num_heads: int = 0, hidden_size: int = 0):
@@ -33,10 +34,10 @@ class UnetOnnxModel(BertOnnxModel):
 
     def preprocess(self):
         self.remove_useless_div()
-        pass
 
     def postprocess(self):
-        self.convert_conv_to_nhwc()
+        self.merge_sequential_transpose()
+        self.remove_unused_constant()
         self.prune_graph()
 
     def remove_useless_div(self):
@@ -58,6 +59,31 @@ class UnetOnnxModel(BertOnnxModel):
         conv_to_nhwc_conv = FusionNhwcConv(self)
         conv_to_nhwc_conv.apply()
 
+    def merge_sequential_transpose(self):
+        fusion_transpose = FusionTranspose(self)
+        fusion_transpose.apply()
+
+        remove_count = 0
+        nodes = self.get_nodes_by_op_type("Transpose")
+        for node in nodes:
+            permutation = OnnxModel.get_node_attribute(node, "perm")
+            assert isinstance(permutation, list)
+            if permutation != list(range(len(permutation))):
+                continue
+            assert not (
+                self.find_graph_output(node.output[0])
+                or self.find_graph_input(node.input[0])
+                or self.find_graph_output(node.input[0])
+            )
+
+            # Let all children nodes skip current Transpose node and link to its parent
+            # Note that we cannot update parent node output since parent node might have more than one children.
+            self.replace_input_of_all_nodes(node.output[0], node.input[0])
+
+            self.remove_node(node)
+            remove_count += 1
+
+        logger.info("Removed %d Transpose nodes", len(fusion_transpose.nodes_to_remove) + remove_count)
 
     def optimize(self, options: Optional[FusionOptions] = None):
         if (options is not None) and not options.enable_shape_inference:
@@ -91,7 +117,9 @@ class UnetOnnxModel(BertOnnxModel):
             self_attention_fusion.apply()
 
             enable_packed_kv = (options is None) or options.enable_packed_kv
-            cross_attention_fusion = FusionAttentionUnet(self, self.hidden_size, self.num_heads, True, enable_packed_kv)
+            cross_attention_fusion = FusionAttentionUnet(
+                self, self.hidden_size, self.num_heads, True, enable_packed_kv
+            )
             cross_attention_fusion.apply()
 
         if (options is None) or options.enable_skip_layer_norm:
@@ -102,7 +130,7 @@ class UnetOnnxModel(BertOnnxModel):
         # Remove reshape nodes that having same shape of input and output based on symbolic shape inference.
         self.utils.remove_useless_reshape_nodes()
 
-        self.postprocess()
+        self.convert_conv_to_nhwc()
 
         if (options is None) or options.enable_bias_skip_layer_norm:
             # Fuse SkipLayerNormalization and Add Bias before it.
@@ -111,6 +139,6 @@ class UnetOnnxModel(BertOnnxModel):
         if options is not None and options.enable_gelu_approximation:
             self.gelu_approximation()
 
-        self.remove_unused_constant()
+        self.postprocess()
 
         logger.info(f"opset version: {self.get_opset_version()}")

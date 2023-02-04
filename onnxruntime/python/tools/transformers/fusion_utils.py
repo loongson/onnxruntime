@@ -74,6 +74,32 @@ class FusionUtils:
                     self.model.replace_input_of_all_nodes(output_name, input_name)
 
     @staticmethod
+    def skip_parent(model: OnnxModel, node, parent_node, input_name_to_nodes):
+        """
+        Before:
+              (input)-->parent-->node-->(output)
+        After:
+              (input)-->parent-->
+                |
+                +----->node-->(output)
+
+        This function returns a flag about whether the parent node can be removed.
+        Note that this function assumes the node has first input links from parent!
+        """
+        parent_can_be_removed = False
+        input_name_to_nodes[node.input[0]].remove(node)
+        # We can remove the first Transpose if its output is not used (linked to graph output or other nodes) anymore.
+        if len(input_name_to_nodes[node.input[0]]) == 0 and not model.find_graph_output(
+            node.input[0]
+        ):  # checks main graph output. TODO: deal with subgraph
+            parent_can_be_removed = True
+            # self.nodes_to_remove.append(transpose_a)
+
+        input_name_to_nodes[parent_node.input[0]].append(node)
+        node.input[0] = parent_node.input[0]
+        return parent_can_be_removed
+
+    @staticmethod
     def check_node_attribute(node, attribute_name: str, expected_value, default_value=None):
         """Verify that a node has expected value for an attribute.
 

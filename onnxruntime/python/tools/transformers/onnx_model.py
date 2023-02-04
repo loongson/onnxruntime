@@ -128,6 +128,8 @@ class OnnxModel:
         for graph in self.graphs():
             if node in graph.node:
                 graph.node.remove(node)
+                return
+        logger.warning("Failed to remove node %s", node) # It might be a bug to hit this line.
 
     def remove_nodes(self, nodes_to_remove):
         for node in nodes_to_remove:

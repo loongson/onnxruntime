@@ -4,11 +4,11 @@
 # --------------------------------------------------------------------------
 
 from logging import getLogger
+from typing import List
 
 from fusion_base import Fusion
-from onnx import helper, numpy_helper, TensorProto
+from onnx import TensorProto, helper, numpy_helper
 from onnx_model import OnnxModel
-from typing import List
 
 logger = getLogger(__name__)
 
@@ -50,8 +50,10 @@ class FusionNhwcConv(Fusion):
 
         # Create a tensor for transposed weights (already in NHWC format).
         node_name = self.model.create_node_name("NhwcConv")
+
+        weight_name = node_name + "_weight_NHWC"
         nhwc_weight = helper.make_tensor(
-            name=node_name + "_weight_NHWC",
+            name=weight_name,
             data_type=TensorProto.FLOAT,
             dims=list(weight.shape),
             vals=weight.flatten().tolist(),
@@ -61,7 +63,7 @@ class FusionNhwcConv(Fusion):
         nhwc_output_name = node_name + "_out" + "-" + conv.output[0]
         nhwc_conv = helper.make_node(
             "NhwcConv",
-            inputs=[nhwc_conv_input, nhwc_weight.name] + conv.input[2:],
+            inputs=[nhwc_conv_input, weight_name] + conv.input[2:],
             outputs=[nhwc_output_name],
             name=node_name + "-" + conv.name,
         )
