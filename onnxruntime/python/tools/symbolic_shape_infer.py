@@ -927,7 +927,7 @@ class SymbolicShapeInference:
         vi.CopyFrom(
             helper.make_tensor_value_info(
                 node.output[0],
-                vi.type.tensor_type.elem_type,
+                self.known_vi_[node.input[0]].type.tensor_type.elem_type,
                 get_shape_from_sympy_shape(sympy_shape),
             )
         )
@@ -2473,7 +2473,7 @@ class SymbolicShapeInference:
             all_shapes_inferred = symbolic_shape_inference._infer_impl()
         symbolic_shape_inference._update_output_from_vi()
         if not all_shapes_inferred:
-            onnx.save_model("sym_shape_infer_temp.onnx", save_as_external_data=True)
+            onnx.save_model(symbolic_shape_inference.out_mp_, "sym_shape_infer_temp.onnx", save_as_external_data=True)
             raise Exception("Incomplete symbolic shape inference")
         return symbolic_shape_inference.out_mp_
 

@@ -7,9 +7,9 @@ from logging import getLogger
 from typing import Dict, List
 
 from fusion_base import Fusion
+from fusion_utils import FusionUtils
 from onnx import NodeProto, helper
 from onnx_model import OnnxModel
-from fusion_utils import FusionUtils
 
 logger = getLogger(__name__)
 
