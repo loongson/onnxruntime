@@ -31,7 +31,8 @@ class FusionTranspose(Fusion):
               (input)-->Transpose(perm=a)-->  (this path can be removed if the output is not used anymore)
                 |
                 +----->Transpose(perm=a*b)-->
-        Case 2:
+
+        Case 2 (Cast has only one child):
               (input)-->Transpose(perm=a)--> Cast -->Transpose(perm=b)-->
         After:
               (input)-->Transpose(perm=a)-->  (this path can be removed if the output is not used anymore)
@@ -49,6 +50,10 @@ class FusionTranspose(Fusion):
             cast_node = None
         else:
             cast_node = transpose_a
+
+            cast_children = self.model.get_children(cast_node, input_name_to_nodes)
+            if cast_children and len(cast_children) > 1:
+                return
             transpose_a = output_name_to_node[cast_node.input[0]]
 
         if transpose_a.op_type != "Transpose":

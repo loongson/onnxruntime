@@ -93,7 +93,6 @@ def optimize_sd_pipeline(
 
         if float16:
             logger.info("convert %s to float16 ...", name)
-            onnx.save(m.model, f"{name}_fp32.onnx", save_as_external_data=True, convert_attribute=True)
             m.convert_float_to_float16(op_block_list=["RandomNormalLike", "Resize", "GroupNorm"])
 
         optimized_model_path = target_dir / name / "model.onnx"

@@ -53,8 +53,9 @@ class UnetOnnxModel(BertOnnxModel):
         for node in nodes_to_remove:
             self.replace_input_of_all_nodes(node.output[0], node.input[0])
 
-        self.remove_nodes(nodes_to_remove)
-        logger.info("Removed %d useless Div (by 1) nodes", len(nodes_to_remove))
+        if nodes_to_remove:
+            self.remove_nodes(nodes_to_remove)
+            logger.info("Removed %d useless Div (by 1) nodes", len(nodes_to_remove))
 
     def convert_conv_to_nhwc(self):
         # Do not update weight here since save external data has a bug
@@ -85,7 +86,9 @@ class UnetOnnxModel(BertOnnxModel):
             self.remove_node(node)
             remove_count += 1
 
-        logger.info("Removed %d Transpose nodes", len(fusion_transpose.nodes_to_remove) + remove_count)
+        total = len(fusion_transpose.nodes_to_remove) + remove_count
+        if total:
+            logger.info("Removed %d Transpose nodes", total)
 
     def optimize(self, options: Optional[FusionOptions] = None):
         if (options is not None) and not options.enable_shape_inference:
