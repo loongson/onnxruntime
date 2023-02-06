@@ -561,7 +561,9 @@ class OnnxModel:
             graph_output_names = set(self.get_graphs_output_names())
             for node in nodes_to_remove:
                 if bool(set(node.output) & graph_output_names):
-                    if (not bool(set(node.input) & graph_input_names)) and len(self.input_name_to_nodes()[node.input[0]]) == 1:
+                    if (not bool(set(node.input) & graph_input_names)) and len(
+                        self.input_name_to_nodes()[node.input[0]]
+                    ) == 1:
                         self.replace_output_of_all_nodes(node.input[0], node.output[0])
                     else:
                         continue

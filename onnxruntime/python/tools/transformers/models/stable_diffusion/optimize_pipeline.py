@@ -11,18 +11,15 @@
 #    huggingface-cli login
 #    wget https://raw.githubusercontent.com/huggingface/diffusers/v0.12.1/scripts/convert_stable_diffusion_checkpoint_to_onnx.py
 #    python convert_stable_diffusion_checkpoint_to_onnx.py --model_path runwayml/stable-diffusion-v1-5  --output_path $ONNX_ROOT/stable-diffusion-v1-5-fp32
-#    python convert_stable_diffusion_checkpoint_to_onnx.py --model_path stabilityai/stable-diffusion-2-1 --output_path $ONNX_ROOT/stable-diffusion-v2-1-fp32
-# Note that this script might not be compatible with older or newer version of diffusers/transformers. It is because fusion script need change accordingly when onnx graph is changed.
+# Note that this script might not be compatible with older or newer version of diffusers.
 
 # Then you can use this script to convert them to float16 like the following:
 #    python optimize_pipeline.py -i $ONNX_ROOT/stable-diffusion-v1-5-fp32 -o $ONNX_ROOT/stable-diffusion-v1-5-fp16 --float16
-#    python optimize_pipeline.py -i $ONNX_ROOT/stable-diffusion-v2-1-fp32 -o $ONNX_ROOT/stable-diffusion-v2-1-fp16 --float16
 # Or
-#    pip install -U onnxruntime-gpu >= 1.14
 #    python -m onnxruntime.transformers.models.stable_diffusion.optimize_pipeline -i $ONNX_ROOT/stable-diffusion-v1-5-fp32 -o $ONNX_ROOT/stable-diffusion-v1-5-fp16 --float16
-#    python -m onnxruntime.transformers.models.stable_diffusion.optimize_pipeline -i $ONNX_ROOT/stable-diffusion-v2-1-fp32 -o $ONNX_ROOT/stable-diffusion-v2-1-fp16 --float16
-
-# Note that float16 model is for CUDA Execution Provider. It might not run in CPU Execution Provider.
+#
+# Note that output model is for CUDA Execution Provider. It might not run in CPU Execution Provider.
+# Stable diffusion 2.1 model will get black images using float16 Attention. It is a known issue that we are working on.
 
 import argparse
 import logging
@@ -39,8 +36,6 @@ from fusion_options import FusionOptions
 from optimizer import optimize_model  # noqa: E402
 
 logger = logging.getLogger(__name__)
-
-DEBUG = True
 
 
 def optimize_sd_pipeline(
@@ -59,7 +54,7 @@ def optimize_sd_pipeline(
         RuntimeError: input onnx model does not exist
         RuntimeError: output onnx model path existed
     """
-    dirs_with_onnx = ["unet"] if DEBUG else ["unet", "vae_encoder", "vae_decoder", "text_encoder", "safety_checker"]
+    dirs_with_onnx = ["unet", "vae_encoder", "vae_decoder", "text_encoder", "safety_checker"]
     for name in dirs_with_onnx:
         onnx_model_path = source_dir / name / "model.onnx"
 
@@ -69,23 +64,18 @@ def optimize_sd_pipeline(
                 raise RuntimeError(message)
             continue
 
-        num_heads = 0
-        hidden_size = 0
-
         # Graph fusion before fp16 conversion, otherwise they cannot be fused later.
         # Right now, onnxruntime does not save >2GB model so we use script to optimize unet instead.
         logger.info(f"optimize {onnx_model_path}...")
 
         fusion_options = FusionOptions("unet")
-        # packed kv requires compute capacity >= 7.5 (like T4, A100, RTX 2060~4090. See https://developer.nvidia.com/cuda-gpus)
-        # Suggest to disable it if you are using older GPU like V100, RTX 1060/1070/1080, or using float32 model.
         fusion_options.enable_packed_kv = float16
 
         m = optimize_model(
             str(onnx_model_path),
             model_type="unet",
-            num_heads=num_heads,
-            hidden_size=hidden_size,
+            num_heads=0,  # will be deduced from graph
+            hidden_size=0,  # will be deduced from graph
             opt_level=0,
             optimization_options=fusion_options,
             use_gpu=False,
@@ -121,7 +111,7 @@ def copy_extra_directory(source_dir: Path, target_dir: Path, overwrite: bool):
         RuntimeError: source path does not exist
         RuntimeError: output path exists but overwrite is false.
     """
-    extra_dirs = [] if DEBUG else ["scheduler", "tokenizer", "feature_extractor"]
+    extra_dirs = ["scheduler", "tokenizer", "feature_extractor"]
 
     for name in extra_dirs:
         source_path = source_dir / name
