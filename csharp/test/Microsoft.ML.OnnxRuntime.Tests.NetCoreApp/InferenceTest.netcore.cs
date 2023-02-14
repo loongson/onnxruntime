@@ -348,7 +348,7 @@ namespace Microsoft.ML.OnnxRuntime.Tests
                 { "test_sequence_map_identity_1_sequence", "sequence type is not supported in test infra." },
                 { "BERT-Squad-int8", "training domain"},
                 { "YOLOv3-12-int8", "training_domain"},
-                // the expansion of Softplus uses Exp(1). ORT has a Softplus kernel, so testing the expansion is 
+                // the expansion of Softplus uses Exp(1). ORT has a Softplus kernel, so testing the expansion is
                 // unnecessary and fails as ORT support for Exp started at opset 6 (as ORT didn't exist until opset 7).
                 { "test_softplus_example_expanded", "Not applicable"},
                 { "test_softplus_expanded", "Not applicable"},
@@ -369,13 +369,7 @@ namespace Microsoft.ML.OnnxRuntime.Tests
                 { "test_bitwise_xor_i32_2d", "pending opset 18 support"},
                 { "test_bitwise_xor_ui8_bcast_4v3d", "pending opset 18 support"},
                 { "test_bitwise_xor_ui64_bcast_3v1d", "pending opset 18 support"},
-                { "test_col2im", "pending opset 18 support"},
-                { "test_col2im_5d", "pending opset 18 support"},
-                { "test_col2im_dilations", "pending opset 18 support"},
                 { "test_col2im_pads", "pending opset 18 support"},
-                { "test_col2im_strides", "pending opset 18 support"},
-                { "test_scatter_elements_with_axis", "pending opset 18 support"},
-                { "test_scatter_elements_without_axis", "pending opset 18 support"},
                 { "test_scatter_elements_with_duplicate_indices", "pending opset 18 support"},
                 { "test_scatter_elements_with_negative_indices", "pending opset 18 support"},
                 { "test_scatter_elements_with_reduction_max", "pending opset 18 support"},
