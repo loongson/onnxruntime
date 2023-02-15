@@ -49,6 +49,10 @@ Abstract:
 #undef pixel
 #undef bool
 #endif
+#if defined(__loongarch64__)
+#include <lsxintrin.h>
+#include <larchintrin.h>
+#endif
 #endif
 
 //
@@ -555,7 +559,7 @@ extern "C" {
 #if defined(MLAS_TARGET_AMD64)
     MLAS_SGEMM_KERNEL_M1_ROUTINE MlasSgemmKernelM1Avx;
     MLAS_SGEMM_KERNEL_M1_ROUTINE MlasSgemmKernelM1TransposeBAvx;
-#elif defined(MLAS_TARGET_ARM64)
+#elif defined(MLAS_TARGET_ARM64) || defined(MLAS_TARGET_LOONGARCH64)
     MLAS_GEMV_FLOAT_KERNEL MlasGemvFloatKernel;
 #endif
 
@@ -949,6 +953,10 @@ MlasFp32FromBits(
 #if defined(__FMA__) || (defined(_MSC_VER) && defined(__AVX2__))
 #define MLAS_FMA3_INTRINSICS
 #endif
+#endif
+
+#if defined(MLAS_TARGET_LOONGARCH64)
+#define MLAS_LOONGARCH64_INTRINSICS
 #endif
 
 #if defined(MLAS_NEON_INTRINSICS)

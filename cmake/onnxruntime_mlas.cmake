@@ -24,6 +24,7 @@ set(mlas_common_srcs
   ${ONNXRUNTIME_ROOT}/core/mlas/lib/qlgavgpool.cpp
 )
 
+
 if(MSVC)
   if(onnxruntime_target_platform STREQUAL "ARM64")
     set(mlas_platform_preprocess_srcs
@@ -134,6 +135,8 @@ else()
     set(X86_64 TRUE)
   elseif (CMAKE_OSX_ARCHITECTURES STREQUAL "i386")
     set(X86 TRUE)
+  elseif (CMAKE_OSX_ARCHITECTURES STREQUAL "loongarch64")
+    set(LOONGARCH64 TRUE)
   endif()
   if (CMAKE_SYSTEM_NAME STREQUAL "Android")
     if (CMAKE_ANDROID_ARCH_ABI STREQUAL "armeabi-v7a")
@@ -165,6 +168,8 @@ else()
       set(X86 TRUE)
     elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "^(x86_64|amd64)$")
       set(X86_64 TRUE)
+    elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "^loongarch64.*")
+      set(LOONGARCH64 TRUE)
     endif()
   endif()
 
@@ -185,6 +190,14 @@ else()
       ${ONNXRUNTIME_ROOT}/core/mlas/lib/aarch64/QgemmU8X8KernelNeon.S
       ${ONNXRUNTIME_ROOT}/core/mlas/lib/aarch64/SgemmKernelNeon.S
       ${ONNXRUNTIME_ROOT}/core/mlas/lib/aarch64/SgemvKernelNeon.S
+    )
+  elseif(LOONGARCH64)
+    enable_language(ASM)
+
+    set(CMAKE_ASM_FLAGS "${CMAKE_ASM_FLAGS} ")
+    set(mlas_platform_srcs
+	    ${ONNXRUNTIME_ROOT}/core/mlas/lib/loongarch64/SgemmKernelLsx.S
+	    ${ONNXRUNTIME_ROOT}/core/mlas/lib/loongarch64/SgemvKernelLsx.S
     )
   elseif(POWER)
     set(mlas_platform_srcs

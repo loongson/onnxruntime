@@ -53,6 +53,9 @@ Abstract:
 #define MLAS_TARGET_POWER
 #endif
 
+#if defined(__loongarch64__)
+#define MLAS_TARGET_LOONGARCH64
+#endif
 //
 // Define the support levels for the target architecture.
 //

@@ -923,8 +923,7 @@ Return Value:
             return;
         }
 
-#elif defined(MLAS_TARGET_ARM64) && !defined(_WIN32)
-
+#elif defined(MLAS_TARGET_ARM64) || defined(MLAS_TARGET_LOONGARCH64) && !defined(_WIN32)
         if (TransB == CblasNoTrans) {
             MlasGemvFloatKernel(A, B, C, K, N, ldb, (beta == 0.0f));
             return;
