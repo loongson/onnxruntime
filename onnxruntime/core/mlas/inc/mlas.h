@@ -53,7 +53,7 @@ Abstract:
 #define MLAS_TARGET_POWER
 #endif
 
-#if defined(__loongarch64__)
+#if defined(__loongarch64)
 #define MLAS_TARGET_LOONGARCH64
 #endif
 //
